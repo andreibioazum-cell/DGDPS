@@ -49,7 +49,7 @@ typedef struct {
 typedef struct {
     float x, y;
     float vy;
-    float size;        // отображаемый размер игрока (после масштабирования)
+    float size;
     int grounded;
     int jumpCount;
 } Player;
