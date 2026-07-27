@@ -52,15 +52,16 @@ typedef struct {
     int frameCount;
     float fps;
     struct timeval lastTime;
-    Spike spikes[20];
+    Spike spikes[50];
     int spikeCount;
     int score;
     float groundY;
     float gravity;
     float jumpPower;
-    float moveSpeed;
+    float speed;
     int gameOver;
     float restartTimer;
+    int spawnTimer;
 } Game;
 
 int game_init(Game* g, int w, int h, AAssetManager* mgr);
