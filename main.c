@@ -1,6 +1,10 @@
 #include "main.h"
 #include <arm_neon.h>
 #include <android/input.h>
+#include <android/log.h>
+
+#define LOG_TAG "GeometryDash"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 // ============================================================
 // GRAPHICS
@@ -62,8 +66,12 @@ void graphics_draw_texture(RenderBuffer* rb, int x, int y, uint32_t* tex, int tw
 #include "stb_image.h"
 
 Texture* texture_load(AAssetManager* mgr, const char* path) {
+    LOGI("Loading texture: %s", path);
     AAsset* asset = AAssetManager_open(mgr, path, AASSET_MODE_BUFFER);
-    if (!asset) return NULL;
+    if (!asset) {
+        LOGI("Failed to open asset: %s", path);
+        return NULL;
+    }
     size_t size = AAsset_getLength(asset);
     unsigned char* filedata = (unsigned char*)malloc(size);
     AAsset_read(asset, filedata, size);
@@ -72,7 +80,10 @@ Texture* texture_load(AAssetManager* mgr, const char* path) {
     int w, h, n;
     unsigned char* img = stbi_load_from_memory(filedata, size, &w, &h, &n, 4);
     free(filedata);
-    if (!img) return NULL;
+    if (!img) {
+        LOGI("stbi_load_from_memory failed for %s", path);
+        return NULL;
+    }
     
     Texture* tex = (Texture*)malloc(sizeof(Texture));
     tex->width = w;
@@ -83,6 +94,7 @@ Texture* texture_load(AAssetManager* mgr, const char* path) {
         tex->data[i] = (a << 24) | (r << 16) | (g << 8) | b;
     }
     stbi_image_free(img);
+    LOGI("Loaded texture %s: %dx%d", path, w, h);
     return tex;
 }
 
@@ -157,8 +169,8 @@ void font_free(Font* f) { if (f) { free(f->buf); free(f); } }
 #define GRAVITY 0.6f
 #define JUMP_POWER -12.0f
 #define GAME_SPEED 7.0f
-#define PLAYER_SCALE 0.35f    // 150 * 0.35 = 52.5 px
-#define SPIKE_SCALE 0.6f      // 49 * 0.6 = 29.4 px
+#define PLAYER_SCALE 0.35f
+#define SPIKE_SCALE 0.6f
 
 void spawn_spike(Game* g) {
     if (g->spikeCount < 50) {
@@ -166,6 +178,7 @@ void spawn_spike(Game* g) {
         g->spikes[g->spikeCount].y = g->groundY;
         g->spikes[g->spikeCount].active = 1;
         g->spikeCount++;
+        LOGI("Spike spawned at x=%.1f, count=%d", g->spikes[g->spikeCount-1].x, g->spikeCount);
     }
 }
 
@@ -183,24 +196,21 @@ int game_init(Game* g, int w, int h, AAssetManager* m) {
     g->spawnTimer = 0;
     g->spikeCount = 0;
     
-    // Загрузка текстур
     g->playerTex = texture_load(m, "cube1.png");
     g->spikeTex = texture_load(m, "spike.png");
+    LOGI("Player tex: %p, Spike tex: %p", g->playerTex, g->spikeTex);
     
-    // Игрок
     g->player.x = 200;
     g->player.y = g->groundY - (150 * PLAYER_SCALE)/2;
     g->player.vy = 0;
-    g->player.size = 150 * PLAYER_SCALE; // реальный отображаемый размер
+    g->player.size = 150 * PLAYER_SCALE;
     g->player.grounded = 1;
     g->player.jumpCount = 0;
     
-    // Начальные шипы
     for (int i = 0; i < 5; i++) {
         spawn_spike(g);
     }
     
-    // Шрифт
     g->fontSize = h/25; 
     if(g->fontSize<16) g->fontSize=16; 
     if(g->fontSize>64) g->fontSize=64;
@@ -263,35 +273,31 @@ void game_update(Game* g, int w, int h) {
         return;
     }
     
-    // Физика
     g->player.vy += g->gravity;
     g->player.y += g->player.vy;
     
-    // Пол
     if (g->player.y + g->player.size/2 >= g->groundY) {
         g->player.y = g->groundY - g->player.size/2;
         g->player.vy = 0;
         g->player.grounded = 1;
     }
-    // Потолок
     if (g->player.y - g->player.size/2 < 0) {
         g->player.y = g->player.size/2;
         g->player.vy = 0;
     }
     
-    // Движение шипов влево
     float spikeSize = 49 * SPIKE_SCALE;
     for (int i = 0; i < g->spikeCount; i++) {
         if (!g->spikes[i].active) continue;
         g->spikes[i].x -= g->speed;
         
-        // Столкновение (упрощённо – по расстоянию между центрами)
         float dx = g->player.x - g->spikes[i].x;
         float dy = g->player.y - g->spikes[i].y;
         float dist = sqrtf(dx*dx + dy*dy);
         if (dist < (g->player.size/2 + spikeSize/2)) {
             g->gameOver = 1;
             g->restartTimer = 0;
+            LOGI("Game Over by spike %d", i);
             return;
         }
         
@@ -300,7 +306,6 @@ void game_update(Game* g, int w, int h) {
         }
     }
     
-    // Спавн
     g->spawnTimer++;
     if (g->spawnTimer > 60) {
         g->spawnTimer = 0;
@@ -309,7 +314,6 @@ void game_update(Game* g, int w, int h) {
         if (activeCount < 8) spawn_spike(g);
     }
     
-    // Очистка
     int write = 0;
     for (int i = 0; i < g->spikeCount; i++) {
         if (g->spikes[i].active) {
@@ -320,7 +324,6 @@ void game_update(Game* g, int w, int h) {
     
     g->score++;
     
-    // FPS
     g->frameCount++;
     struct timeval now;
     gettimeofday(&now, 0);
@@ -335,26 +338,33 @@ void game_update(Game* g, int w, int h) {
 void game_draw(Game* g, RenderBuffer* rb) {
     graphics_clear(rb, 0xFF16213e);
     
-    // Пол
     graphics_draw_rect(rb, rb->width/2, (int)g->groundY + 10, rb->width, 8, 0xFF0a0a1a);
     graphics_draw_rect(rb, rb->width/2, (int)g->groundY, rb->width, 8, 0xFF1a1a2e);
     
-    // Рисуем шипы
     if (g->spikeTex && g->spikeTex->data) {
         for (int i = 0; i < g->spikeCount; i++) {
             if (g->spikes[i].active) {
-                graphics_draw_texture(rb, 
-                                      (int)g->spikes[i].x, 
-                                      (int)g->spikes[i].y - (49 * SPIKE_SCALE)/2, // смещение чтобы шип стоял на полу
-                                      g->spikeTex->data, 
-                                      g->spikeTex->width, 
-                                      g->spikeTex->height, 
-                                      SPIKE_SCALE);
+                int drawX = (int)g->spikes[i].x;
+                int drawY = (int)(g->spikes[i].y - (49 * SPIKE_SCALE) / 2);
+                if (drawX > -50 && drawX < g->screen_w + 50) {
+                    graphics_draw_texture(rb, drawX, drawY,
+                                          g->spikeTex->data,
+                                          g->spikeTex->width,
+                                          g->spikeTex->height,
+                                          SPIKE_SCALE);
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < g->spikeCount; i++) {
+            if (g->spikes[i].active) {
+                int x = (int)g->spikes[i].x;
+                int y = (int)g->spikes[i].y;
+                graphics_draw_rect(rb, x, y - 10, 20, 20, 0xFFFF0000);
             }
         }
     }
     
-    // Рисуем игрока
     if (g->playerTex && g->playerTex->data) {
         graphics_draw_texture(rb, 
                               (int)g->player.x, 
@@ -364,24 +374,19 @@ void game_draw(Game* g, RenderBuffer* rb) {
                               g->playerTex->height, 
                               PLAYER_SCALE);
     } else {
-        // fallback если текстура не загрузилась
         graphics_draw_rect(rb, (int)g->player.x, (int)g->player.y, 40, 40, 0xFF4CAF50);
     }
     
-    // Счёт
     char scoreText[32];
     snprintf(scoreText, sizeof(scoreText), "%d", g->score);
     font_draw_text(g->font, rb, rb->width/2 - 50, 60, scoreText, 0xFFFFFFFF);
     
-    // FPS
     char fps[32];
     snprintf(fps, sizeof(fps), "FPS: %.0f", g->fps);
     font_draw_text(g->font, rb, rb->width-140, 30, fps, 0x88FFFFFF);
     
-    // Название
     font_draw_text(g->font, rb, 20, 30, "GEOMETRY DASH", 0xFFe94560);
     
-    // Game Over
     if (g->gameOver) {
         font_draw_text(g->font, rb, rb->width/2 - 120, rb->height/2 - 40, "GAME OVER", 0xFFFF0000);
         font_draw_text(g->font, rb, rb->width/2 - 150, rb->height/2 + 30, "TAP TO RESTART", 0xFFFFFFFF);
