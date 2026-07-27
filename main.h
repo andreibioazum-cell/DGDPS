@@ -20,8 +20,7 @@ typedef struct {
 
 void graphics_clear(RenderBuffer* rb, uint32_t color);
 void graphics_draw_rect(RenderBuffer* rb, int x, int y, int size, uint32_t color);
-void graphics_draw_circle(RenderBuffer* rb, int cx, int cy, int r, uint32_t color);
-void graphics_draw_ring(RenderBuffer* rb, int cx, int cy, int r, int thickness, uint32_t color);
+void graphics_draw_triangle(RenderBuffer* rb, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color);
 
 // ===== Font =====
 typedef struct Font Font;
@@ -30,37 +29,45 @@ void font_set_size(Font* f, float pixel_height);
 void font_draw_text(Font* f, RenderBuffer* rb, int x, int y, const char* text, uint32_t color);
 void font_free(Font* f);
 
-// ===== UI =====
+// ===== Spike =====
 typedef struct {
-    int centerX, centerY, radius;
-    float dirX, dirY, touchOffX, touchOffY;
-} Joystick;
-
-void ui_draw_joystick(RenderBuffer* rb, Joystick* joy);
-void ui_handle_joystick(Joystick* joy, float x, float y, int action);
+    float x, y;
+    int active;
+} Spike;
 
 // ===== Game =====
 typedef struct {
     float x, y;
-    float angle;
-    float last_angle;
-    float scale;
+    float vy;
+    float size;
+    int grounded;
+    int jumpCount;
 } Player;
 
 typedef struct {
     Player player;
-    Joystick joy;
     Font* font;
     int screen_w, screen_h;
     int fontSize;
     int frameCount;
     float fps;
     struct timeval lastTime;
+    Spike spikes[20];
+    int spikeCount;
+    int score;
+    float groundY;
+    float gravity;
+    float jumpPower;
+    float moveSpeed;
+    int gameOver;
+    float restartTimer;
 } Game;
 
 int game_init(Game* g, int w, int h, AAssetManager* mgr);
 void game_update(Game* g, int w, int h);
 void game_draw(Game* g, RenderBuffer* rb);
 void game_free(Game* g);
+void game_jump(Game* g);
+void game_restart(Game* g);
 
 #endif
