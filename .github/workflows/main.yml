@@ -31,7 +31,10 @@ jobs:
         mkdir -p staging/lib/arm64-v8a staging/lib/armeabi-v7a staging/assets
         cp libmain_64.so staging/lib/arm64-v8a/libmain.so
         cp libmain_32.so staging/lib/armeabi-v7a/libmain.so
+        # Копируем текстуры и шрифт
         cp Roboto-Regular.ttf staging/assets/ 2>/dev/null || echo "Roboto-Regular.ttf not found"
+        cp cube1.png staging/assets/ 2>/dev/null || echo "cube1.png not found"
+        cp spike.png staging/assets/ 2>/dev/null || echo "spike.png not found"
 
         SDK_ROOT=$ANDROID_HOME
         BT="$SDK_ROOT/build-tools/34.0.0"
