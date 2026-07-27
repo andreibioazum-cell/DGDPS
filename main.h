@@ -19,8 +19,8 @@ typedef struct {
 } RenderBuffer;
 
 void graphics_clear(RenderBuffer* rb, uint32_t color);
-void graphics_draw_rect(RenderBuffer* rb, int x, int y, int size, uint32_t color);
-void graphics_draw_triangle(RenderBuffer* rb, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color);
+void graphics_draw_rect(RenderBuffer* rb, int x, int y, int w, int h, uint32_t color);
+void graphics_draw_texture(RenderBuffer* rb, int x, int y, uint32_t* tex, int tw, int th, float scale);
 
 // ===== Font =====
 typedef struct Font Font;
@@ -28,6 +28,16 @@ int font_init(Font** out_font, const unsigned char* ttf_data, int data_size, flo
 void font_set_size(Font* f, float pixel_height);
 void font_draw_text(Font* f, RenderBuffer* rb, int x, int y, const char* text, uint32_t color);
 void font_free(Font* f);
+
+// ===== Texture =====
+typedef struct {
+    uint32_t* data;
+    int width;
+    int height;
+} Texture;
+
+Texture* texture_load(AAssetManager* mgr, const char* path);
+void texture_free(Texture* tex);
 
 // ===== Spike =====
 typedef struct {
@@ -39,7 +49,7 @@ typedef struct {
 typedef struct {
     float x, y;
     float vy;
-    float size;
+    float size;        // отображаемый размер игрока (после масштабирования)
     int grounded;
     int jumpCount;
 } Player;
@@ -47,6 +57,8 @@ typedef struct {
 typedef struct {
     Player player;
     Font* font;
+    Texture* playerTex;
+    Texture* spikeTex;
     int screen_w, screen_h;
     int fontSize;
     int frameCount;
