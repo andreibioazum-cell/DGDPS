@@ -91,7 +91,7 @@ void game_free() {
 }
 
 void game_jump() {
-    if(G.gameOver){ game_init(G.assets,G.w,G.h); return; }
+    if(G.gameOver){ game_init(G.assets, G.w, G.h); return; }
     if(G.grounded){ G.vy=G.jumpPower; G.grounded=0; G.jumpCount++; G.jumpTime=0; G.targetAngle=G.angle+M_PI; }
 }
 
@@ -132,13 +132,18 @@ void game_draw(RenderBuffer* rb) {
     graphics_clear(rb,0xFF16213e);
     graphics_draw_rect(rb,rb->width/2,(int)G.groundY+10,rb->width,8,0xFF0a0a1a);
     graphics_draw_rect(rb,rb->width/2,(int)G.groundY,rb->width,8,0xFF1a1a2e);
-    if(G.spikeTex){
+    if(G.spikeTex && G.spikeTex->data){
         for(int i=0;i<G.spikeCount;i++) if(G.spikes[i].active){
             int dx=(int)G.spikes[i].x, dy=(int)(G.spikes[i].y-(49*0.6f)/2);
             if(dx>-50 && dx<rb->width+50) graphics_draw_texture_rotated(rb,dx,dy,G.spikeTex->data,G.spikeTex->w,G.spikeTex->h,0.6f,0);
         }
     }
-    if(G.playerTex) graphics_draw_texture_rotated(rb,(int)G.px,(int)G.py,G.playerTex->data,G.playerTex->w,G.playerTex->h,0.35f,G.angle);
+    if(G.playerTex && G.playerTex->data){
+        graphics_draw_texture_rotated(rb,(int)G.px,(int)G.py,G.playerTex->data,G.playerTex->w,G.playerTex->h,0.35f,G.angle);
+    } else {
+        // fallback на случай, если текстура не загружена
+        graphics_draw_rect(rb, (int)G.px, (int)G.py, (int)G.size, (int)G.size, 0xFF4CAF50);
+    }
     char buf[32]; snprintf(buf,sizeof(buf),"%d",G.score);
     if(G.font) draw_text(G.font,rb,rb->width/2-50,60,buf,0xFFFFFFFF);
 }
