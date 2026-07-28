@@ -1,4 +1,4 @@
-name: Build Geometry Dash 2D
+name: Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -9,41 +9,31 @@ jobs:
     - uses: nttld/setup-ndk@v1
       with:
         ndk-version: r25c
-
-    - name: Download stb_image.h and stb_truetype.h
+    - name: Download stb
       run: |
         wget https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
         wget https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h
-
     - name: Build
       run: |
         NDK_ROOT=$ANDROID_NDK_ROOT
         TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
         GLUE="$NDK_ROOT/sources/android/native_app_glue"
-        SRCS="main.c $GLUE/android_native_app_glue.c"
+        SRCS="main.c menu.c game.c graphics.c $GLUE/android_native_app_glue.c"
         FLAGS="-O3 -s -fPIC -shared -I. -I$GLUE -landroid -llog -lm"
-
         "$TOOLCHAIN/aarch64-linux-android21-clang" $SRCS -o libmain_64.so $FLAGS
         "$TOOLCHAIN/armv7a-linux-androideabi21-clang" $SRCS -o libmain_32.so $FLAGS -mfpu=neon
-
     - name: Package
       run: |
         mkdir -p staging/lib/arm64-v8a staging/lib/armeabi-v7a staging/assets
         cp libmain_64.so staging/lib/arm64-v8a/libmain.so
         cp libmain_32.so staging/lib/armeabi-v7a/libmain.so
-        # Копируем все ассеты из папки assets
-        cp assets/* staging/assets/ 2>/dev/null || echo "No assets found"
-
+        cp assets/* staging/assets/ 2>/dev/null || true
         SDK_ROOT=$ANDROID_HOME
         BT="$SDK_ROOT/build-tools/34.0.0"
-        "$BT/aapt" package -f -M ./AndroidManifest.xml \
-            -I "$SDK_ROOT/platforms/android-34/android.jar" \
-            -F unsigned.apk ./staging/
-
+        "$BT/aapt" package -f -M ./AndroidManifest.xml -I "$SDK_ROOT/platforms/android-34/android.jar" -F unsigned.apk ./staging/
         "$BT/zipalign" -v 4 unsigned.apk aligned.apk
         keytool -genkey -v -keystore debug.keystore -storepass android -alias debug -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug"
         "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --out Game.apk aligned.apk
-
     - uses: actions/upload-artifact@v4
       with:
         name: Game-APK
